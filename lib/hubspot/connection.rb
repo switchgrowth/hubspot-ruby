@@ -21,7 +21,7 @@ module Hubspot
       no_parse = opts[:params].delete(:no_parse) { false }
 
       url = generate_url(path, opts[:params])
-      response = post(
+      response = HTTParty.post(
         url,
         body: opts[:body].to_json,
         headers: {
@@ -45,7 +45,7 @@ module Hubspot
       no_parse = options[:params].delete(:no_parse) { false }
       url = generate_url(path, options[:params])
 
-      response = put(
+      response = HTTParty.put(
         url,
         body: options[:body].to_json,
         headers: {
