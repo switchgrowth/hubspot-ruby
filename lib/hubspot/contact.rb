@@ -22,6 +22,7 @@ module Hubspot
     RECENTLY_CREATED_PATH        = '/contacts/v1/lists/all/contacts/recent'
     CREATE_OR_UPDATE_PATH        = '/contacts/v1/contact/createOrUpdate/email/:contact_email'
     QUERY_PATH                   = '/contacts/v1/search/query'
+    SEARCH_PATH                  = '/crm/v3/objects/contacts/search'
 
     class << self
       # {https://developers.hubspot.com/docs/methods/contacts/create_contact}
@@ -145,13 +146,27 @@ module Hubspot
         new(response)
       end
 
-      # {https://developers.hubspot.com/docs/methods/contacts/search_contacts}
-      def search(connection, query, options = {})
-        count   = options.fetch(:count, 100)
-        offset  = options.fetch(:offset, 0)
+      # {https://developers.hubspot.com/docs/api/crm/search}
+      def search(connection, filters)
+        response = connection.post_json(SEARCH_PATH, params: {}, body: {
+          limit: 100,
+          filterGroups: [{ filters: filters }]
+        })
 
-        response = connection.get_json(QUERY_PATH, { q: query, count: count, offset: offset })
-        response.merge("contacts" => response["contacts"].map { |contact_hash| new(contact_hash) })
+        contacts = []
+
+        contacts << response["results"].map { |contact_hash| new(contact_hash) }
+
+        while response.dig('paging', 'next', 'after') do
+          response = connection.post_json(SEARCH_PATH, params: {}, body: {
+            limit: 100,
+            after: response.dig('paging', 'next', 'after'),
+            filterGroups: [{ filters: filters }]
+          })
+          contacts << response["results"].map { |contact_hash| new(contact_hash) }
+        end
+
+        contacts
       end
 
       # Merge two contacts
