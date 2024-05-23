@@ -31,12 +31,13 @@ module Hubspot
     end
 
     class << self
-      def create!(portal_id, company_ids, vids, params={})
+      def create!(connection, portal_id, company_ids, vids, params={})
         #TODO: clean following hash, Hubspot::Utils should do the trick
         associations_hash = {"portalId" => portal_id, "associations" => { "associatedCompanyIds" => company_ids, "associatedVids" => vids}}
         post_data = associations_hash.merge({ properties: Hubspot::Utils.hash_to_properties(params, key_name: "name") })
 
-        response = Hubspot::Connection.post_json(CREATE_DEAL_PATH, params: {}, body: post_data )
+        response = connection.post_json(CREATE_DEAL_PATH, params: {}, body: post_data)
+
         new(response)
       end
 
@@ -44,37 +45,40 @@ module Hubspot
        # {http://developers.hubspot.com/docs/methods/deals/associate_deal}
        # Usage
        # Hubspot::Deal.associate!(45146940, [], [52])
-       def associate!(deal_id, company_ids=[], vids=[])
+       def associate!(connection, deal_id, company_ids=[], vids=[])
          objecttype = company_ids.any? ? 'COMPANY' : 'CONTACT'
          object_ids = (company_ids.any? ? company_ids : vids).join('&id=')
-         Hubspot::Connection.put_json(ASSOCIATE_DEAL_PATH, params: { deal_id: deal_id, OBJECTTYPE: objecttype, objectId: object_ids}, body: {})
+
+         connection.put_json(ASSOCIATE_DEAL_PATH, params: { deal_id: deal_id, OBJECTTYPE: objecttype, objectId: object_ids}, body: {})
        end
 
 
-      def find(deal_id)
-        response = Hubspot::Connection.get_json(DEAL_PATH, { deal_id: deal_id })
+      def find(connection, deal_id)
+        response = connection.get_json(DEAL_PATH, { deal_id: deal_id })
+
         new(response)
       end
 
-      def all(opts = {})
+      def all(connection, opts = {})
         path = ALL_DEALS_PATH
 
         opts[:includeAssociations] = true # Needed for initialize to work
-        response = Hubspot::Connection.get_json(path, opts)
 
-        result = {}
-        result['deals'] = response['deals'].map { |d| new(d) }
-        result['offset'] = response['offset']
-        result['hasMore'] = response['hasMore']
-        return result
+        response = connection.get_json(path, opts)
+
+        {
+         'deals' => response['deals'].map { |d| new(d) },
+         'offset' => response['offset'],
+         'hasMore' => response['hasMore']
+        }
       end
 
       # Find recent updated deals.
       # {http://developers.hubspot.com/docs/methods/deals/get_deals_modified}
       # @param count [Integer] the amount of deals to return.
       # @param offset [Integer] pages back through recent contacts.
-      def recent(opts = {})
-        response = Hubspot::Connection.get_json(RECENT_UPDATED_PATH, opts)
+      def recent(connection, opts = {})
+        response = connection.get_json(RECENT_UPDATED_PATH, opts)
         response['results'].map { |d| new(d) }
       end
 
